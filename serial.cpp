@@ -3,12 +3,13 @@
 #include <assert.h>
 #include <math.h>
 #include "common.h"
+#include <iostream>
 
 //
 //  benchmarking program
 //
 int main( int argc, char **argv )
-{    
+{
     if( find_option( argc, argv, "-h" ) >= 0 )
     {
         printf( "Options:\n" );
@@ -26,7 +27,13 @@ int main( int argc, char **argv )
     particle_t *particles = (particle_t*) malloc( n * sizeof(particle_t) );
     set_size( n );
     init_particles( n, particles );
-    
+
+    int num_cells = get_num_cells();
+    cout << num_cells << endl;
+    CellMatrix cells(num_cells);
+    init_cell_matrix(cells);
+    update_cells(particles, cells, n);
+
     //
     //  simulate a number of time steps
     //
@@ -46,8 +53,18 @@ int main( int argc, char **argv )
         //
         //  move particles
         //
-        for( int i = 0; i < n; i++ ) 
+        for( int i = 0; i < n; i++ )
+        {
             move( particles[i] );
+        }
+
+        //
+        // update cell information
+        //
+        for(int i = 0; i < n; i++) {
+
+        }
+
         
         //
         //  save if necessary
@@ -65,3 +82,4 @@ int main( int argc, char **argv )
     
     return 0;
 }
+

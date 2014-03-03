@@ -2,7 +2,7 @@
 # Computers with Red Hat Enterprise Linux 5 in the computer room 648, KTH Forum, Kista
 #
 
-CC = g++-4.8
+CC = g++-4.9
 MPCC =  mpicc -cc=g++44
 OPENMP = -fopenmp
 LIBS = -lm

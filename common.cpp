@@ -7,6 +7,8 @@
 #include <time.h>
 #include <sys/time.h>
 #include "common.h"
+#include <iostream>
+#include <typeinfo>
 
 double size;
 
@@ -174,3 +176,52 @@ char *read_string( int argc, char **argv, const char *option, char *default_valu
         return argv[iplace+1];
     return default_value;
 }
+
+int get_num_cells()
+{
+    return (int) ceil(size/cutoff);
+}
+
+void init_cell_matrix(CellMatrix &cells)
+{
+    int num_cells = cells.size();
+    cout << num_cells << endl;
+    for(int i = 0; i < num_cells ; i++)
+    {
+        cells[i].resize(num_cells);
+
+    }
+}
+
+void update_cells(particle_t *particles, CellMatrix &cells, int n)
+{
+    int i, j;
+    int num_cells = cells.size();
+    for(i = 0; i < num_cells; i++)
+    {
+        for(j = 0; j < num_cells; j++)
+        {
+            cells[i][j].clear();
+        }
+    }
+
+    for(i = 0; i < n; i++)
+    {
+        Point p = get_cell_index(particles[i]);
+        cells[p.x][p.y].push_back(&particles[i]);
+    }
+
+}
+
+Point get_cell_index(particle_t &particle)
+{
+    Point p = {floor(particle.x/cutoff), floor(particle.y/cutoff)};
+    return p;
+}
+
+
+
+
+
+
+
