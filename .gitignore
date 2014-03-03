@@ -11,3 +11,9 @@
 *.lai
 *.la
 *.a
+
+# compiled executables
+visualize/visualize
+serial
+openmp
+pthreads
