@@ -17,3 +17,6 @@ visualize/visualize
 serial
 openmp
 pthreads
+
+# output files
+*.out
