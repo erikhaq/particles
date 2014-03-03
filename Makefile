@@ -1,13 +1,15 @@
 #
 # Computers with Red Hat Enterprise Linux 5 in the computer room 648, KTH Forum, Kista
 #
-CC = g++44
+
+CC = g++-4.8
 MPCC =  mpicc -cc=g++44
 OPENMP = -fopenmp
 LIBS = -lm
 CFLAGS = -O3
 
-TARGETS = serial pthreads openmp mpi
+#TARGETS = serial pthreads openmp mpi
+TARGETS = serial pthreads openmp
 
 all:	$(TARGETS)
 
