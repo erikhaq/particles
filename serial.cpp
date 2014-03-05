@@ -19,7 +19,7 @@ int main( int argc, char **argv )
         return 0;
     }
     
-    int n = read_int( argc, argv, "-n", 1000 );
+    int n = read_int( argc, argv, "-n", 100 );
 
     char *savename = read_string( argc, argv, "-o", NULL );
     
@@ -46,8 +46,12 @@ int main( int argc, char **argv )
         for( int i = 0; i < n; i++ )
         {
             particles[i].ax = particles[i].ay = 0;
-            for (int j = 0; j < n; j++ )
-                apply_force( particles[i], particles[j] );
+            // for (int j = 0; j < n; j++ )
+            // {
+            //     apply_force( particles[i], particles[j] );
+                
+            // }
+            apply_force( &particles[i], cells);
         }
         
         //
@@ -61,6 +65,7 @@ int main( int argc, char **argv )
         //
         // update cell information
         //
+        update_cells(particles, cells, n);
         for(int i = 0; i < n; i++) {
 
         }

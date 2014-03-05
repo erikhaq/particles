@@ -2,6 +2,7 @@
 #define __CS267_COMMON_H__
 
 #include <vector>
+#include <math.h>
 using namespace std;
 
 inline int min( int a, int b ) { return a < b ? a : b; }
@@ -65,7 +66,20 @@ char *read_string( int argc, char **argv, const char *option, char *default_valu
 int get_num_cells();
 void init_cell_matrix(CellMatrix&);
 void update_cells(particle_t*, CellMatrix&, int);
+void update_cells_only(int, int, particle_t*, CellMatrix&);
 Point get_cell_index(particle_t&);
+void apply_force(particle_t*, CellMatrix&);
+void print_point(Point);
+void print_particle(particle_t*);
+bool is_same(particle_t*, particle_t*);
+void clear_cells(CellMatrix&);
+void clear_cells(int, int, CellMatrix&);
+
+template <typename T>
+T clamp(T in, T min, T max)
+{
+	return std::min(std::max(in, min), max);
+}
 
 
 
