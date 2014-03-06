@@ -28,6 +28,8 @@ int main( int argc, char **argv )
     //  set up MPI
     //
     int n_proc, rank;
+    set_size(n);
+    int num_cells = get_num_cells();
     MPI_Init( &argc, &argv );
     MPI_Comm_size( MPI_COMM_WORLD, &n_proc );
     MPI_Comm_rank( MPI_COMM_WORLD, &rank );
@@ -39,9 +41,14 @@ int main( int argc, char **argv )
     particle_t *particles = (particle_t*) malloc( n * sizeof(particle_t) );
     
     MPI_Datatype PARTICLE;
-    MPI_Type_contiguous( 6, MPI_DOUBLE, &PARTICLE );
+    MPI_Type_contiguous( 6, MPI_DOUBLE, &PARTICLE ); // define the datatype PARTICLE as struct of 6 doubles
     MPI_Type_commit( &PARTICLE );
     
+
+
+    CellMatrix cells(num_cells);
+   
+
     //
     //  set up the data partitioning across processors
     //
@@ -65,7 +72,11 @@ int main( int argc, char **argv )
     //
     set_size( n );
     if( rank == 0 )
+    {
         init_particles( n, particles );
+        init_cell_matrix(cells);
+        update_cells(particles, cells, n);
+    }
     MPI_Scatterv( particles, partition_sizes, partition_offsets, PARTICLE, local, nlocal, PARTICLE, 0, MPI_COMM_WORLD );
     
     //
