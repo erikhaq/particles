@@ -46,11 +46,7 @@ int main( int argc, char **argv )
         for( int i = 0; i < n; i++ )
         {
             particles[i].ax = particles[i].ay = 0;
-            // for (int j = 0; j < n; j++ )
-            // {
-            //     apply_force( particles[i], particles[j] );
-                
-            // }
+            
             apply_force( &particles[i], cells);
         }
         
@@ -66,9 +62,7 @@ int main( int argc, char **argv )
         // update cell information
         //
         update_cells(particles, cells, n);
-        for(int i = 0; i < n; i++) {
-
-        }
+      
 
         
         //

@@ -20,3 +20,5 @@ pthreads
 
 # output files
 *.out
+
+mpi

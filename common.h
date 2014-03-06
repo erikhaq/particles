@@ -74,6 +74,7 @@ void print_particle(particle_t*);
 bool is_same(particle_t*, particle_t*);
 void clear_cells(CellMatrix&);
 void clear_cells(int, int, CellMatrix&);
+void get_particles_from_rows(int, int, Particles*, CellMatrix&);
 
 template <typename T>
 T clamp(T in, T min, T max)

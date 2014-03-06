@@ -6,38 +6,85 @@
 #include "common.h"
 #include "osxbarrier.h"
 #include <iostream>
+#include <vector>
 
 using namespace std;
 
 //
 //  global variables
 //
+// typedef std::vector<std::vector<pthread_mutex_t*> > CellLocks;
+// CellLocks locks;
 int n, n_threads;
 particle_t *particles;
 FILE *fsave;
 pthread_barrier_t barrier;
 CellMatrix cells;
-pthread_mutex_t cellBarrier;
-pthread_cond_t go;
+pthread_mutex_t cs;
+// pthread_mutex_t cellBarrier;
+// pthread_cond_t go;
 int numArrived = 0;
 //
 //  check that pthreads routine call was successful
 //
 #define P( condition ) {if( (condition) != 0 ) { printf( "\n FAILURE in %s, line %d\n", __FILE__, __LINE__ );exit( 1 );}}
 
+// void init_cell_locks(CellLocks &locks)
+// {
+//     int num_cells = locks.size();
+//     for(int r = 0; r < num_cells; r++)
+//     {
+//         locks[r].clear();
+//         locks[r].resize(num_cells);
+//         for(int c = 0; c < num_cells; c++)
+//         {
+//             pthread_mutex_t *lock = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+//             pthread_mutex_init(lock, NULL);
+//             locks[r][c] = lock;
+//         }
+//     }
+// }
+// void update_cells_parallel(int first_particle, int last_particle, particle_t *particles, CellMatrix &cells)
+// {
+//     for(int i = first_particle; i < last_particle; i++)
+//     {
+//         Point p = get_cell_index(particles[i]);
+//         pthread_mutex_lock(locks[p.y][p.x]);
+//         cells[p.y][p.x].push_back(&particles[i]);
+//         pthread_mutex_unlock(locks[p.y][p.x]);
+//     }
+// }
+void update_cells_parallel(int start_row, int end_row, Particles &my_particles, CellMatrix &cells)
+{
+    for(int i = 0; i < my_particles.size(); i++)
+    {
+        particle_t *curr_particle = my_particles[i];
+        Point p = get_cell_index(*curr_particle);
+        if(p.y >= end_row || p.y < start_row)
+        {
+            pthread_mutex_lock(&cs);
+            cells[p.y][p.x].push_back(curr_particle);
+            pthread_mutex_unlock(&cs);
+        }
+        else
+        {
+            cells[p.y][p.x].push_back(curr_particle);
+        }
+    }
+}
 
 /* a reusable counter barrier */
-void cell_barrier() {
-  pthread_mutex_lock(&cellBarrier);
-  numArrived++;
-  if (numArrived == n_threads) {
-    numArrived = 0;
-    update_cells(particles, cells, n);
-    pthread_cond_broadcast(&go);
-  } else
-    pthread_cond_wait(&go, &cellBarrier);
-  pthread_mutex_unlock(&cellBarrier);
-}
+// void cell_barrier() {
+//   pthread_mutex_lock(&cellBarrier);
+//   numArrived++;
+//   if (numArrived == n_threads) {
+//     numArrived = 0;
+//     update_cells(particles, cells, n);
+//     pthread_cond_broadcast(&go);
+//   } else
+//     pthread_cond_wait(&go, &cellBarrier);
+//   pthread_mutex_unlock(&cellBarrier);
+// }
 //
 //  This is where the action happens
 //
@@ -51,49 +98,54 @@ void *thread_routine( void *pthread_id )
 
     int first_row = min(  thread_id     * rows_per_thread, num_cells);
     int last_row  = min( (thread_id+1)  * rows_per_thread, num_cells);
-    printf("first_row: %d\n", first_row);
-    printf("last_row: %d\n", last_row);
 
     int first = min(  thread_id    * particles_per_thread, n );
     int last  = min( (thread_id+1) * particles_per_thread, n );
-    // printf("first: %d\n", first);
-    // printf("last: %d\n", last);
+
+    Particles my_particles;
+    my_particles.clear();
+    get_particles_from_rows(first_row, last_row, &my_particles, cells);
+
+ 
     //
     //  simulate a number of time steps
     //
     for( int step = 0; step < NSTEPS; step++ )
     {
-        //
+        my_particles.clear();
+        get_particles_from_rows(first_row, last_row, &my_particles, cells);
+        
         //  compute forces
         //
-        for( int i = first; i < last; i++ )
-        {
-            particles[i].ax = particles[i].ay = 0;
-        //     for (int j = 0; j < n; j++ )
-        //         apply_force( particles[i], particles[j] );
-            apply_force( &particles[i], cells);
 
+        for(int i = 0; i < my_particles.size(); i++)
+        {
+            particle_t *curr_particle = my_particles[i];
+            curr_particle->ax = 0;
+            curr_particle->ay = 0;
+            apply_force( curr_particle, cells);            
         }
+
         
         pthread_barrier_wait( &barrier );
         
         //
         //  move particles
         //
-        for( int i = first; i < last; i++ ) 
-            move( particles[i] );
+        for(int i = 0; i < my_particles.size(); i++)
+        {
+            particle_t *curr_particle = my_particles[i];
+            move(*my_particles[i]);            
+        }
         
-        // pthread_barrier_wait( &barrier );
-        // clear_cells(first_row, last_row, cells);
-        // printf("hej\n");
+        pthread_barrier_wait( &barrier );
+        clear_cells(first_row, last_row, cells);
 
-
-        // pthread_barrier_wait( &barrier );
+        pthread_barrier_wait( &barrier );
+        update_cells_parallel(first_row, last_row, my_particles, cells);
+    
+        pthread_barrier_wait( &barrier );
         
-        // printf("bajs\n");
-        // update_cells_only(first, last, particles, cells);
-        // pthread_barrier_wait( &barrier );
-         cell_barrier();
         //
         //  save if necessary
         //
@@ -141,12 +193,11 @@ int main( int argc, char **argv )
     init_cell_matrix(cells);
     update_cells(particles, cells, n);
 
-
     pthread_attr_t attr;
     P( pthread_attr_init( &attr ) );
     P( pthread_barrier_init( &barrier, NULL, n_threads ) );
-    pthread_mutex_init(&cellBarrier, NULL);
-    pthread_cond_init(&go, NULL);
+
+    pthread_mutex_init(&cs, NULL);
     int *thread_ids = (int *) malloc( n_threads * sizeof( int ) );
     for( int i = 0; i < n_threads; i++ ) 
         thread_ids[i] = i;
