@@ -13,47 +13,19 @@ using namespace std;
 //
 //  global variables
 //
-// typedef std::vector<std::vector<pthread_mutex_t*> > CellLocks;
-// CellLocks locks;
 int n, n_threads;
 particle_t *particles;
 FILE *fsave;
 pthread_barrier_t barrier;
 CellMatrix cells;
 pthread_mutex_t cs;
-// pthread_mutex_t cellBarrier;
-// pthread_cond_t go;
 int numArrived = 0;
+
 //
 //  check that pthreads routine call was successful
 //
 #define P( condition ) {if( (condition) != 0 ) { printf( "\n FAILURE in %s, line %d\n", __FILE__, __LINE__ );exit( 1 );}}
 
-// void init_cell_locks(CellLocks &locks)
-// {
-//     int num_cells = locks.size();
-//     for(int r = 0; r < num_cells; r++)
-//     {
-//         locks[r].clear();
-//         locks[r].resize(num_cells);
-//         for(int c = 0; c < num_cells; c++)
-//         {
-//             pthread_mutex_t *lock = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
-//             pthread_mutex_init(lock, NULL);
-//             locks[r][c] = lock;
-//         }
-//     }
-// }
-// void update_cells_parallel(int first_particle, int last_particle, particle_t *particles, CellMatrix &cells)
-// {
-//     for(int i = first_particle; i < last_particle; i++)
-//     {
-//         Point p = get_cell_index(particles[i]);
-//         pthread_mutex_lock(locks[p.y][p.x]);
-//         cells[p.y][p.x].push_back(&particles[i]);
-//         pthread_mutex_unlock(locks[p.y][p.x]);
-//     }
-// }
 void update_cells_parallel(int start_row, int end_row, Particles &my_particles, CellMatrix &cells)
 {
     for(int i = 0; i < my_particles.size(); i++)
@@ -73,21 +45,6 @@ void update_cells_parallel(int start_row, int end_row, Particles &my_particles, 
     }
 }
 
-/* a reusable counter barrier */
-// void cell_barrier() {
-//   pthread_mutex_lock(&cellBarrier);
-//   numArrived++;
-//   if (numArrived == n_threads) {
-//     numArrived = 0;
-//     update_cells(particles, cells, n);
-//     pthread_cond_broadcast(&go);
-//   } else
-//     pthread_cond_wait(&go, &cellBarrier);
-//   pthread_mutex_unlock(&cellBarrier);
-// }
-//
-//  This is where the action happens
-//
 void *thread_routine( void *pthread_id )
 {
     int thread_id = *(int*)pthread_id;
@@ -115,15 +72,15 @@ void *thread_routine( void *pthread_id )
         my_particles.clear();
         get_particles_from_rows(first_row, last_row, &my_particles, cells);
         
+        //
         //  compute forces
         //
-
         for(int i = 0; i < my_particles.size(); i++)
         {
             particle_t *curr_particle = my_particles[i];
             curr_particle->ax = 0;
             curr_particle->ay = 0;
-            apply_force( curr_particle, cells);            
+            apply_force(curr_particle, cells);            
         }
 
         
@@ -188,7 +145,6 @@ int main( int argc, char **argv )
     init_particles( n, particles );
 
     int num_cells = get_num_cells();
-    cout << num_cells << endl;
     cells = CellMatrix(num_cells);
     init_cell_matrix(cells);
     update_cells(particles, cells, n);

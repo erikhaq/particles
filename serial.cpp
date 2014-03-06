@@ -29,7 +29,6 @@ int main( int argc, char **argv )
     init_particles( n, particles );
 
     int num_cells = get_num_cells();
-    cout << num_cells << endl;
     CellMatrix cells(num_cells);
     init_cell_matrix(cells);
     update_cells(particles, cells, n);
@@ -62,8 +61,6 @@ int main( int argc, char **argv )
         // update cell information
         //
         update_cells(particles, cells, n);
-      
-
         
         //
         //  save if necessary
