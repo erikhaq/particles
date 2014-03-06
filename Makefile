@@ -4,13 +4,12 @@
 
 CC = g++-4.9
 # MPCC =  mpicc -cc=g++44
-MPCC =  mpicc -lmpi
+MPCC =  mpicc -lmpi -lmpi_cxx
 OPENMP = -fopenmp
 LIBS = -lm
 CFLAGS = -O3
 
 TARGETS = serial pthreads openmp mpi
-#TARGETS = serial pthreads openmp
 
 all:	$(TARGETS)
 

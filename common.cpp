@@ -87,7 +87,7 @@ void init_particles( int n, particle_t *p )
 //
 //  interact two particles
 //
-void apply_force( particle_t &particle, particle_t &neighbor )
+void apply_force_to_particle( particle_t &particle, particle_t &neighbor )
 {
 
     double dx = neighbor.x - particle.x;
@@ -218,6 +218,7 @@ void update_cells(particle_t *particles, CellMatrix &cells, int n)
     }
     
 }
+
 void update_cells_only(int first_particle, int last_particle, particle_t *particles, CellMatrix &cells)
 {
     for(int i = first_particle; i < last_particle; i++)
@@ -226,9 +227,9 @@ void update_cells_only(int first_particle, int last_particle, particle_t *partic
         cells[p.y][p.x].push_back(&particles[i]);
     }
 }
+
 void clear_cells(CellMatrix &cells)
-{
-     
+{    
     int num_rows = cells.size();
     
     for(int i = 0; i < num_rows; i++)
@@ -236,17 +237,15 @@ void clear_cells(CellMatrix &cells)
         int num_cols = cells[i].size();
         for(int j = 0; j < num_cols; j++)
         {
-           // cout << "size-c :" << cells[i][j].size() <<endl;
-
             cells[i][j].clear();
             cells[i][j].resize(0);
 
         }
     }
 }
+
 void clear_cells(int start_row, int end_row, CellMatrix& cells)
-{
-    
+{ 
     for(int i = start_row; i < end_row; i++)
     {
         int num_cols = cells[i].size();
@@ -281,17 +280,14 @@ void apply_force(particle_t *particle, CellMatrix &cells)
 
     for(int r = r_start; r <= r_end; r++)
     {
-   
         for(int c = c_start; c <= c_end; c++)
-        {
-            
+        {       
             if(!cells[r][c].empty())
             {
                 Particles neighbors = cells[r][c];
                 int num_parts = neighbors.size();
                 for(int i = 0; i < num_parts; i++)
-                {
-                        
+                {       
                     particle_t *neighbor = cells[r][c][i];
                     if(particle == neighbor)
                     {
@@ -299,11 +295,9 @@ void apply_force(particle_t *particle, CellMatrix &cells)
                         continue;
                     }
                     // apply the force of neighbor on current particle
-                    apply_force(*particle, *neighbor);
-                }
-                
+                    apply_force_to_particle(*particle, *neighbor);
+                }      
             }
-            
         }
     }
 

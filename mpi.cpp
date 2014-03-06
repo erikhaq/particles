@@ -92,7 +92,7 @@ int main( int argc, char **argv )
         {
             local[i].ax = local[i].ay = 0;
             for (int j = 0; j < n; j++ )
-                apply_force( local[i], particles[j] );
+                apply_force_to_particle( local[i], particles[j] );
         }
         
         //
