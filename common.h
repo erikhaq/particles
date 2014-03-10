@@ -2,6 +2,7 @@
 #define __CS267_COMMON_H__
 
 #include <vector>
+#include <list>
 #include <math.h>
 using namespace std;
 

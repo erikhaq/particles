@@ -138,6 +138,7 @@ void move( particle_t &p )
     }
 }
 
+
 //
 //  I/O routines
 //
@@ -229,11 +230,19 @@ void update_cells_only(int first_particle, int last_particle, particle_t *partic
 }
 void add_particles_to_cells(ParticleList &particles, CellMatrix &cells )
 {
-    for(int i = 0; i < particles.size(); i++)
+    ParticleList::iterator iter = particles.begin();
+    while(iter != particles.end())
     {
-        Point p = get_cell_index(particle[i]);
-        cells[p.y][p.x].push_back(&particles[i]);
+        Point p = get_cell_index(*iter);
+        cells[p.y][p.x].push_back(&(*iter));
+        ++iter;
     }
+    // for(int i = 0; i < particles.size(); i++)
+    // {
+    //     Point p = get_cell_index(particles[i]);
+    //     cells[p.y][p.x].push_back(&particles[i]);
+
+    // }
 }
 
 void clear_cells(CellMatrix &cells)
