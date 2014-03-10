@@ -227,6 +227,14 @@ void update_cells_only(int first_particle, int last_particle, particle_t *partic
         cells[p.y][p.x].push_back(&particles[i]);
     }
 }
+void add_particles_to_cells(ParticleList &particles, CellMatrix &cells )
+{
+    for(int i = 0; i < particles.size(); i++)
+    {
+        Point p = get_cell_index(particle[i]);
+        cells[p.y][p.x].push_back(&particles[i]);
+    }
+}
 
 void clear_cells(CellMatrix &cells)
 {    
@@ -246,6 +254,8 @@ void clear_cells(CellMatrix &cells)
 
 void clear_cells(int start_row, int end_row, CellMatrix& cells)
 { 
+    start_row = clamp<int>(start_row, 0, cells.size());
+    end_row   = clamp<int>(end_row, 0, cells.size());
     for(int i = start_row; i < end_row; i++)
     {
         int num_cols = cells[i].size();
@@ -316,6 +326,23 @@ void get_particles_from_rows(int start_row, int end_row, Particles *in, CellMatr
                 {
                    // particle_t *curr_particle = cell_particles[i];
                     in->push_back(cell_particles[i]);
+                }
+            }
+        }
+ }
+ void get_particles_from_rows(int start_row, int end_row, ParticleList *in, CellMatrix& cells)
+ {
+    for( int r = start_row; r < end_row; r++) 
+        {
+            int num_cols = cells[r].size();
+            for(int c = 0; c < num_cols; c++)
+            {
+                Particles cell_particles = cells[r][c];
+                int num_parts = cell_particles.size();
+                for(int i = 0; i < num_parts; i++)
+                {
+                   // particle_t *curr_particle = cell_particles[i];
+                    in->push_back(*cell_particles[i]);
                 }
             }
         }
