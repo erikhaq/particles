@@ -31,6 +31,7 @@ typedef struct
 // cell data structure
 //
 typedef vector<particle_t*> Particles;
+typedef vector<particle_t> ParticleList;
 typedef vector<vector<Particles> > CellMatrix;
 typedef struct {
 	int x, y;
@@ -67,6 +68,7 @@ int get_num_cells();
 void init_cell_matrix(CellMatrix&);
 void update_cells(particle_t*, CellMatrix&, int);
 void update_cells_only(int, int, particle_t*, CellMatrix&);
+void add_particles_to_cells(ParticleList&, CellMatrix& );
 Point get_cell_index(particle_t&);
 void apply_force(particle_t*, CellMatrix&);
 void print_point(Point);
@@ -75,6 +77,7 @@ bool is_same(particle_t*, particle_t*);
 void clear_cells(CellMatrix&);
 void clear_cells(int, int, CellMatrix&);
 void get_particles_from_rows(int, int, Particles*, CellMatrix&);
+void get_particles_from_rows(int , int , ParticleList* , CellMatrix&);
 
 template <typename T>
 T clamp(T in, T min, T max)
