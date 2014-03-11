@@ -16,28 +16,7 @@ void exchange_particles(ParticleList &particles, int myRank, int target, Particl
 //
 //  benchmarking program
 //
-// void get_overlapping_particles(ParticleList &my_particles, ParticleList *buff, int myRank, int n_proc, MPI_Comm comm) 
-// {
-//     MPI_Request reqAbove;
-//     MPI_Request reqBelow;
-//     MPI_Status status;
-//     int num_above;
-//     int num_below;
-//     if(myRank > 0) // there is a row above that is overlapping
-//     {
 
-//         MPI_Probe(myRank-1, BUFF_TOP, comm, &status);
-//         int buffSize;
-//         MPI_Get_count(&status, PARTICLE, &buffSize)
-//         MPI_Recv
-//         // MPI_Irecv(&num_above, 1, MPI_INT, myRank-1, NUM_TOP, comm, &reqAbove );
-//     }
-//     if(myRank < n_proc-1) // there is a row below taht is overlapping
-//     {
-//         MPI_Irecv(&num_below, 1, MPI_INT, myRank+1, NUM_BOTTOM, comm, &reqBelow );
-//     }
-
-// }
 void send_overlapping_particles(CellMatrix &cells, int top_row_overlapp, int bottom_row_overlapp, int myRank, int n_proc, MPI_Comm comm, MPI_Datatype type)
 {
     int num_bottom, num_top;
@@ -52,17 +31,8 @@ void send_overlapping_particles(CellMatrix &cells, int top_row_overlapp, int bot
             
             myBuff.clear();
             get_particles_from_rows(bottom_row_overlapp-1, bottom_row_overlapp, &myBuff, cells);
-            // printf("%d gathered its particles from row: %d with size %d\n",myRank, bottom_row_overlapp-1, myBuff.size() );
             exchange_particles(myBuff, myRank, myRank+1, otherBuff, type, comm);
 
-            //
-            // num_bottom = bottomBuff.size();
-            // // send the number particles in my bottom row to the process below, and recieve numer of particles in
-            // // the other processes top row.
-            // MPI_Sendrecv(&num_bottom, 1, MPI_INT, myRank+1, NUM_BOTTOM, &num_top, 1, MPI_INT, myRank+1, NUM_TOP, comm, &status);
-            // ParticleList bottomOverlapp(num_top); // initilize
-            // MPI_Sendrecv(&bottomBuff.front(), num_bottom, PARTICLE, myRank+1, BUFF_BOTTOM,&bottomOverlapp.front(), num_top, PARTICLE, myRank+1, BUFF_TOP, comm, &status);
-            // add_particles_to_cells(bottomOverlapp, cells); // add the reference particles to the cells,
             add_particles_to_cells(otherBuff, cells); // add the reference particles to the cells,
         }
         if(myRank > 0) // we don't want the root to send its top row anywhere.
@@ -70,13 +40,6 @@ void send_overlapping_particles(CellMatrix &cells, int top_row_overlapp, int bot
             myBuff.clear();
             get_particles_from_rows(top_row_overlapp, top_row_overlapp+1, &myBuff, cells);
             exchange_particles(myBuff, myRank, myRank-1, otherBuff, type, comm);
-            // num_top = topBuff.size();
-            // // send the number particles in my top row to the process above, and recieve numer of particles in
-            // // the other processes bottom row.
-            // MPI_Sendrecv(&num_top, 1, MPI_INT, myRank-1, NUM_TOP, &num_bottom, 1, MPI_INT, myRank-1, NUM_BOTTOM, comm, &status);
-            // ParticleList topOverlapp(num_bottom); // initilize
-            // MPI_Sendrecv(&topBuff.front(), num_top, PARTICLE, myRank-1, BUFF_TOP ,&topOverlapp.front(), num_bottom, PARTICLE, myRank-1, BUFF_BOTTOM, comm, &status);
-            // add_particles_to_cells(topOverlapp, cells); // add the reference particles to the cells,
             add_particles_to_cells(otherBuff, cells); // add the reference particles to the cells,
         }
     }
@@ -85,7 +48,7 @@ void send_overlapping_particles(CellMatrix &cells, int top_row_overlapp, int bot
         myBuff.clear();
         get_particles_from_rows(top_row_overlapp, top_row_overlapp+1, &myBuff, cells);
         exchange_particles(myBuff, myRank, myRank-1, otherBuff, type, comm);
-        // printf("out size: %d\n", otherBuff.size());
+        
         add_particles_to_cells(otherBuff, cells); // add the reference particles to the cells,
         if(myRank < n_proc-1) // we don't want the last process to send its bottom row
         {
@@ -214,7 +177,7 @@ int main( int argc, char **argv )
     int rows_per_thread = (num_cells + n_proc - 1) / n_proc;
     int top_row     = min(  rank     * rows_per_thread, num_cells); // the top row that the process is responsible for.
     int bottom_row  = min( (rank+1)  * rows_per_thread, num_cells); // the bottow row that this process needs but is not responsible for
-    // printf("rank: %d topRow: %d bottomRow: %d\n", rank, top_row, bottom_row);
+    
     int my_amount;
     ParticleList my_particles;
     
@@ -263,14 +226,8 @@ int main( int argc, char **argv )
     add_particles_to_cells(my_particles, cells);
 
     
-//void send_overlapping_particles(CellMatrix &cells, int top_row_overlapp, int bottom_row_overlapp, int myRank, int n_proc, MPI_Comm comm, MPI_Datatype type)
     send_overlapping_particles(cells, top_row, bottom_row, rank, n_proc, MPI_COMM_WORLD, PARTICLE);
 
-    
-    //MPI_Scatterv( particles, partition_sizes, partition_offsets, PARTICLE, local, nlocal, PARTICLE, 0, MPI_COMM_WORLD );
-    // printf("My particle size: %d\n", my_particles.size());
-    // particle_t part = my_particles[0];
-    // print_particle(&part);
     // //
     // //  simulate a number of time steps
     // //
@@ -284,49 +241,7 @@ int main( int argc, char **argv )
         MPI_Barrier(MPI_COMM_WORLD); // wait in order to synchronize with same frame.
 
 
-//         MPI_Gather(&my_particles.front(), my_particles.size(), PARTICLE, particles, n, PARTICLE, 0, MPI_COMM_WORLD);
-
-// MPI_Barrier(MPI_COMM_WORLD); // wait in order to synchronize with same frame.
-//         my_particles.clear();
-//         all_particles.clear();
-//         if( rank == 0 )
-//             {
-                
-//                 update_cells(particles, cells, n);
-//                 for(int rankId = 0; rankId < n_proc; rankId++) 
-//                 {
-//                     partition_offsets[rankId] = all_particles.size();
-//                     int first_row = min(  rankId     * rows_per_thread, num_cells);
-//                     int last_row  = min( (rankId+1)  * rows_per_thread, num_cells);
-
-//                     ParticleList tmp;
-//                     tmp.clear();
-//                     get_particles_from_rows(first_row, last_row, &tmp, cells);
-//                     all_particles.insert(all_particles.end(), tmp.begin(), tmp.end());
-//                     int amount = tmp.size();
-//                     partition_sizes[rankId] = tmp.size();
-
-//                 }
-//                partition_offsets[n_proc] = n;
-//             }
-            
-//             printf("hej\n"); 
-//             // broadcast all offsets ant sizes so we can scatter later.
-//             MPI_Bcast(partition_offsets, n_proc+1, MPI_INT, 0, MPI_COMM_WORLD);
-//             MPI_Bcast(partition_sizes, n_proc, MPI_INT, 0, MPI_COMM_WORLD);
-//             // get my_amount from the partition sizes array and rezise the my_particles vector.
-//             my_amount = partition_sizes[rank];
-//             my_particles.resize(my_amount);
-          
-//             MPI_Scatterv( &all_particles.front(), partition_sizes, partition_offsets, PARTICLE, &my_particles.front(), my_amount, PARTICLE, 0, MPI_COMM_WORLD );    
-
-
-
-//             clear_cells(top_row-1, bottom_row+1, cells);
-//             add_particles_to_cells(my_particles, cells);
-
-//             send_overlapping_particles(cells, top_row, bottom_row, rank, n_proc, MPI_COMM_WORLD, PARTICLE);
-
+       // MPI_Gather(&my_particles.front(), my_particles.size(), PARTICLE, particles, n, PARTICLE, 0, MPI_COMM_WORLD);
 
 
         //
@@ -350,17 +265,6 @@ int main( int argc, char **argv )
              ++iter;
 
         }
-        // for( int i = 0; i < my_amount; i++ )
-        // {
-        //     particle_t *curr_particle = &my_particles[i];
-        //     curr_particle->ax = 0;
-        //     curr_particle->ay = 0;
-        //     // local[i].ax = local[i].ay = 0;
-        //     //  apply_force(&local[i], cells);
-        //      apply_force(curr_particle, cells);
-        //     // for (int j = 0; j < n; j++ )
-        //     //     apply_force_to_particle( local[i], particles[j] );
-        // }
         
         //
         //  move particles
