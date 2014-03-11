@@ -203,14 +203,14 @@ int main( int argc, char **argv )
             tmp.clear();
             get_particles_from_rows(first_row, last_row, &tmp, cells);
             all_particles.insert(all_particles.end(), tmp.begin(), tmp.end());
-            int amount = tmp.size();
+           // int amount = tmp.size();
             partition_sizes[rankId] = tmp.size();
 
         }
        partition_offsets[n_proc] = n;
     }
     // broadcast all offsets ant sizes so we can scatter later.
-    MPI_Bcast(partition_offsets, n_proc+1, MPI_INT, 0, MPI_COMM_WORLD);
+   // MPI_Bcast(partition_offsets, n_proc+1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(partition_sizes, n_proc, MPI_INT, 0, MPI_COMM_WORLD);
     // get my_amount from the partition sizes array and rezise the my_particles vector.
     my_amount = partition_sizes[rank];
@@ -231,7 +231,7 @@ int main( int argc, char **argv )
     // //
     // //  simulate a number of time steps
     // //
-      double simulation_time = read_timer( );
+    double simulation_time = read_timer( );
     for( int step = 0; step < NSTEPS; step++ )
     {
         // 
@@ -241,8 +241,49 @@ int main( int argc, char **argv )
         MPI_Barrier(MPI_COMM_WORLD); // wait in order to synchronize with same frame.
 
 
-       // MPI_Gather(&my_particles.front(), my_particles.size(), PARTICLE, particles, n, PARTICLE, 0, MPI_COMM_WORLD);
+        MPI_Gatherv(&my_particles.front(), my_amount, PARTICLE, particles, partition_sizes, partition_offsets,PARTICLE, 0, MPI_COMM_WORLD);
+        all_particles.clear();
+        if( rank == 0 )
+        {
+        
+            update_cells(particles, cells, n);
+            for(int rankId = 0; rankId < n_proc; rankId++) 
+            {
+                partition_offsets[rankId] = all_particles.size();
+                int first_row = min(  rankId     * rows_per_thread, num_cells);
+                int last_row  = min( (rankId+1)  * rows_per_thread, num_cells);
 
+                ParticleList tmp;
+                tmp.clear();
+                get_particles_from_rows(first_row, last_row, &tmp, cells);
+                all_particles.insert(all_particles.end(), tmp.begin(), tmp.end());
+               // int amount = tmp.size();
+                partition_sizes[rankId] = tmp.size();
+
+            }
+            partition_offsets[n_proc] = n;
+        }
+    
+
+    // broadcast all offsets ant sizes so we can scatter later.
+    MPI_Bcast(partition_offsets, n_proc+1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(partition_sizes, n_proc, MPI_INT, 0, MPI_COMM_WORLD);
+
+    // get my_amount from the partition sizes array and rezise the my_particles vector.
+    my_amount = partition_sizes[rank];
+    my_particles.resize(my_amount);
+  
+    MPI_Scatterv( &all_particles.front(), partition_sizes, partition_offsets, PARTICLE, &my_particles.front(), my_amount, PARTICLE, 0, MPI_COMM_WORLD );    
+   /* clears all the rows that the process is responsible for and also the overlapping
+      rows that this process needs for its computatuins. The clear cells function clamps 
+      the row values so it does not go out of bounds since the first and last process does 
+      not have a overlapping top and bottom row respectivly.
+    */
+    clear_cells(top_row-1, bottom_row+1, cells); 
+    add_particles_to_cells(my_particles, cells);
+
+    
+   // send_overlapping_particles(cells, top_row, bottom_row, rank, n_proc, MPI_COMM_WORLD, PARTICLE);
 
         //
         //  save current step if necessary (slightly different semantics than in other codes)
@@ -256,6 +297,8 @@ int main( int argc, char **argv )
         ParticleList::iterator iter = my_particles.begin();
         while(iter != my_particles.end())
         {
+            
+            
             particle_t *curr_particle = &(*iter);
             curr_particle->ax = 0;
             curr_particle->ay = 0;
@@ -269,10 +312,10 @@ int main( int argc, char **argv )
         //
         //  move particles
         
-        ParticleList out_of_bounds_top;
-        ParticleList out_of_bounds_bottom;
-        out_of_bounds_top.clear();
-        out_of_bounds_bottom.clear();
+        // ParticleList out_of_bounds_top;
+        // ParticleList out_of_bounds_bottom;
+        // out_of_bounds_top.clear();
+        // out_of_bounds_bottom.clear();
         iter = my_particles.begin();
         // printf("%d will start moving particles\n", rank);
         while(iter != my_particles.end())
@@ -280,28 +323,28 @@ int main( int argc, char **argv )
             
            // particle_t *curr_particle = &(*iter);
             move(*iter);
-            Point p = get_cell_index(*iter);
-            if(p.y < top_row ) // the particle moved out of our bounds
-            {
+            // Point p = get_cell_index(*iter);
+            // if(p.y < top_row ) // the particle moved out of our bounds
+            // {
                 
-                particle_t tmp = (*iter);
-                out_of_bounds_top.push_back(tmp);
-                // my_particles.erase(iter++);
-                iter = my_particles.erase(iter);
-                // printf("bounds top after %d\n", out_of_bounds_top.size());
-            }
-            else if(p.y >= bottom_row)
-            {
-                // printf("%d :outofboundds bottom\n", rank);
-                out_of_bounds_bottom.push_back(*iter);
-                // my_particles.erase(iter++);
-                iter = my_particles.erase(iter);
-            }
-            else
-            {
-                ++iter;
-            }
-            // ++iter;
+            //     particle_t tmp = (*iter);
+            //     out_of_bounds_top.push_back(tmp);
+            //     // my_particles.erase(iter++);
+            //     iter = my_particles.erase(iter);
+            //     // printf("bounds top after %d\n", out_of_bounds_top.size());
+            // }
+            // else if(p.y >= bottom_row)
+            // {
+            //     // printf("%d :outofboundds bottom\n", rank);
+            //     out_of_bounds_bottom.push_back(*iter);
+            //     // my_particles.erase(iter++);
+            //     iter = my_particles.erase(iter);
+            // }
+            // else
+            // {
+            //     ++iter;
+            // }
+             ++iter;
 
         }
         // printf("%d is done moving particles\n", rank);

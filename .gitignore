@@ -23,4 +23,7 @@ pthreads
 
 mpi
 
+
 mpi2.cpp
+mpi_orig
+test.cpp
