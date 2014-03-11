@@ -356,7 +356,23 @@ void get_particles_from_rows(int start_row, int end_row, Particles *in, CellMatr
             }
         }
  }
-
+ void get_particles_from_rows(int start_row, int end_row, list<particle_t> *in, CellMatrix& cells)
+ {
+    for( int r = start_row; r < end_row; r++) 
+        {
+            int num_cols = cells[r].size();
+            for(int c = 0; c < num_cols; c++)
+            {
+                Particles cell_particles = cells[r][c];
+                int num_parts = cell_particles.size();
+                for(int i = 0; i < num_parts; i++)
+                {
+                   // particle_t *curr_particle = cell_particles[i];
+                    in->push_back(*cell_particles[i]);
+                }
+            }
+        }
+ }
 void print_point(Point p)
 {
     printf("Point: (%d, %d)\n", p.y, p.x);
