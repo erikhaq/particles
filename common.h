@@ -79,6 +79,7 @@ void clear_cells(CellMatrix&);
 void clear_cells(int, int, CellMatrix&);
 void get_particles_from_rows(int, int, Particles*, CellMatrix&);
 void get_particles_from_rows(int , int , ParticleList* , CellMatrix&);
+void get_particles_from_rows(int , int , list<particle_t>*, CellMatrix& );
 
 template <typename T>
 T clamp(T in, T min, T max)
