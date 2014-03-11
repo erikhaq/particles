@@ -4,7 +4,8 @@
 
 CC = g++-4.9
 # MPCC =  mpicc -cc=g++44
-MPCC =  mpicc -lmpi -lmpi_cxx
+# MPCC =  mpicc -lmpi -lmpi_cxx
+MPCC =  mpicxx
 OPENMP = -fopenmp
 LIBS = -lm
 CFLAGS = -O3

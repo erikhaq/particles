@@ -22,3 +22,5 @@ pthreads
 *.out
 
 mpi
+
+mpi2.cpp
