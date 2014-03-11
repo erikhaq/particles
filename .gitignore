@@ -22,3 +22,7 @@ pthreads
 *.out
 
 mpi
+
+mpi_orig
+
+test.cpp
