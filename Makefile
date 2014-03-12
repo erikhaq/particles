@@ -10,7 +10,8 @@ OPENMP = -fopenmp
 LIBS = -lm
 CFLAGS = -O3
 
-TARGETS = serial pthreads openmp mpi mpi_orig
+TARGETS = serial pthreads openmp mpi mpi2
+# TARGETS = serial pthreads openmp mpi mpi_orig
 
 all:	$(TARGETS)
 
@@ -24,6 +25,8 @@ mpi: mpi.o common.o
 	$(MPCC) -o $@ $(LIBS) $(MPILIBS) mpi.o common.o
 mpi_orig: mpi_orig.o common.o
 	$(MPCC) -o $@ $(LIBS) $(MPILIBS) mpi_orig.o common.o
+mpi2: mpi2.o common.o
+	$(MPCC) -o $@ $(LIBS) $(MPILIBS) mpi2.o common.o
 
 openmp.o: openmp.cpp common.h
 	$(CC) -c $(OPENMP) $(CFLAGS) openmp.cpp
