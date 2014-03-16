@@ -59,7 +59,7 @@ int main( int argc, char **argv )
     CellMatrix cells(num_cells);
     init_cell_matrix(cells);
     update_cells(particles, cells, n);
-    int n_threads = omp_get_max_threads();
+    int n_threads = read_int( argc, argv, "-p", omp_get_max_threads() );
     omp_set_num_threads(n_threads);
 
     

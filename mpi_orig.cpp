@@ -67,7 +67,7 @@ int main( int argc, char **argv )
     //  allocate generic resources
     //
     // FILE *fsave = savename && rank == 0 ? fopen( savename, "w" ) : NULL;
-     FILE *fsave = savename ? fopen( savename, "w" ) : NULL;
+    FILE *fsave = savename ? fopen( savename, "w" ) : NULL;
     particle_t *particles = (particle_t*) malloc( n * sizeof(particle_t) );
     
     MPI_Datatype PARTICLE;
@@ -85,17 +85,17 @@ int main( int argc, char **argv )
     particle_t dummy;
     dummy.x = -1;
     dummy.y = -1;
+
     //
     //  set up the data partitioning across processors
     //
-    
     int *partition_offsets = (int*) malloc( (n_proc+1) * sizeof(int) );
     int *partition_sizes = (int*) malloc( n_proc * sizeof(int) );
+    
+
     //
     //  allocate storage for local partition
     //
-    
-
     int rows_per_thread = (num_cells + n_proc - 1) / n_proc;
     int top_row     = min(  rank     * rows_per_thread, num_cells); // the top row that the process is responsible for.
     int bottom_row  = min( (rank+1)  * rows_per_thread, num_cells); // the bottow row that this process needs but is not responsible for
@@ -104,7 +104,7 @@ int main( int argc, char **argv )
     
     //
     //  initialize and distribute the particles (that's fine to leave it unoptimized)
-
+    //
     ParticleList all_particles;
     all_particles.clear();
     init_cell_matrix(cells);
@@ -265,7 +265,6 @@ int main( int argc, char **argv )
              
         }
         MPI_Request req;
-        //
         if(top_row > 0) MPI_Isend(&dummy, 1, PARTICLE, rank - 1, DONE, MPI_COMM_WORLD, &req);
         if(bottom_row < num_cells) MPI_Isend(&dummy, 1, PARTICLE, rank + 1, DONE, MPI_COMM_WORLD, &req);
 
