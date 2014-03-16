@@ -1,7 +1,3 @@
-#
-# Computers with Red Hat Enterprise Linux 5 in the computer room 648, KTH Forum, Kista
-#
-
 CC = g++-4.9
 # MPCC =  mpicc -cc=g++44
 # MPCC =  mpicc -lmpi -lmpi_cxx
@@ -10,7 +6,7 @@ OPENMP = -fopenmp
 LIBS = -lm
 CFLAGS = -O3
 
-TARGETS = serial pthreads openmp mpi mpi_orig 
+TARGETS = serial pthreads openmp mpi 
 
 
 all:	$(TARGETS)
@@ -23,8 +19,6 @@ openmp: openmp.o common.o
 	$(CC) -o $@ $(LIBS) $(OPENMP) openmp.o common.o
 mpi: mpi.o common.o
 	$(MPCC) -o $@ $(LIBS) $(MPILIBS) mpi.o common.o
-mpi_orig: mpi_orig.o common.o
-	$(MPCC) -o $@ $(LIBS) $(MPILIBS) mpi_orig.o common.o
 
 
 openmp.o: openmp.cpp common.h
@@ -35,8 +29,6 @@ pthreads.o: pthreads.cpp common.h
 	$(CC) -c $(CFLAGS) pthreads.cpp
 mpi.o: mpi.cpp common.h
 	$(MPCC) -c $(CFLAGS) mpi.cpp
-mpi_orig.o: mpi_orig.cpp common.h
-	$(MPCC) -c $(CFLAGS) mpi_orig.cpp
 common.o: common.cpp common.h
 	$(CC) -c $(CFLAGS) common.cpp
 
