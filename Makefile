@@ -25,8 +25,7 @@ mpi: mpi.o common.o
 	$(MPCC) -o $@ $(LIBS) $(MPILIBS) mpi.o common.o
 mpi_orig: mpi_orig.o common.o
 	$(MPCC) -o $@ $(LIBS) $(MPILIBS) mpi_orig.o common.o
-# mpi2: mpi2.o common.o
-# 	$(MPCC) -o $@ $(LIBS) $(MPILIBS) mpi2.o common.o
+
 
 openmp.o: openmp.cpp common.h
 	$(CC) -c $(OPENMP) $(CFLAGS) openmp.cpp
@@ -37,7 +36,7 @@ pthreads.o: pthreads.cpp common.h
 mpi.o: mpi.cpp common.h
 	$(MPCC) -c $(CFLAGS) mpi.cpp
 mpi_orig.o: mpi_orig.cpp common.h
-	$(MPCC) -c $(CFLAGS) mpi_orig.cpp	
+	$(MPCC) -c $(CFLAGS) mpi_orig.cpp
 common.o: common.cpp common.h
 	$(CC) -c $(CFLAGS) common.cpp
 
