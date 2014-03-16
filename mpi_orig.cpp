@@ -164,9 +164,10 @@ int main( int argc, char **argv )
 
             if(rank == 0)
             {
-
                 int num_waiting = n - my_particles.size();
                 int i;
+                int count = num_waiting;
+                // MPI_Request *requests =(MPI_Request*) malloc(num_waiting * sizeof(MPI_Request));
                 for(i = 0; i < my_particles.size(); i++)
                 {
                     particles[i] = my_particles[i];
@@ -177,10 +178,12 @@ int main( int argc, char **argv )
                     MPI_Status stat;
                     MPI_Recv(&other, 1, PARTICLE, MPI_ANY_SOURCE, SAVE, MPI_COMM_WORLD, &stat);
                     particles[i] = other;
+                    // MPI_Irecv(&particles[i], 1, PARTICLE, MPI_ANY_SOURCE, SAVE, MPI_COMM_WORLD, &requests[num_waiting-1]);
                     i++;
                     num_waiting--;
                     // printf("num_waiting: %d\n", num_waiting);
                 }
+                // MPI_Waitall(count,requests, MPI_STATUSES_IGNORE);
                 save( fsave, n, particles );
             }
             else 

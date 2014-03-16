@@ -34,7 +34,7 @@ pthreads.o: pthreads.cpp common.h
 mpi.o: mpi.cpp common.h
 	$(MPCC) -c $(CFLAGS) mpi.cpp
 mpi_orig.o: mpi_orig.cpp common.h
-	$(MPCC) -c $(CFLAGS) mpi_orig.cpp
+	$(MPCC) -c $(CFLAGS) mpi_orig.cpp	
 common.o: common.cpp common.h
 	$(CC) -c $(CFLAGS) common.cpp
 
