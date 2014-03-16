@@ -2,124 +2,28 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <list>
 #include "common.h"
 
-#define NUM_TOP 1
-#define NUM_BOTTOM 2
-#define BUFF_TOP 3
-#define BUFF_BOTTOM 4
-#define BUFF_SIZE 5
-#define EXCHANGE 6
-
-void send_overlapping_particles(CellMatrix &cells, int top_row_overlapp, int bottom_row_overlapp, int myRank, int n_proc, MPI_Comm comm, MPI_Datatype type);
-void exchange_particles(ParticleList &particles, int myRank, int target, ParticleList &out, MPI_Datatype type ,MPI_Comm comm);
+using namespace std;
+#define NEW 1
+#define BOUND 2
+#define DONE 3
+#define SAVE 4
 //
 //  benchmarking program
 //
 
-void send_overlapping_particles(CellMatrix &cells, int top_row_overlapp, int bottom_row_overlapp, int myRank, int n_proc, MPI_Comm comm, MPI_Datatype type)
+void add_particles_mpi(ParticleList &particles, CellMatrix &cells)
 {
-    int num_bottom, num_top;
-    MPI_Status status;
-    ParticleList myBuff, otherBuff;
-    myBuff.clear();
-    otherBuff.clear();
-    if((myRank % 2) == 0) // all even processes sends their bottom row to the process below first, then top
+    ParticleList::iterator iter = particles.begin();
+    while(iter != particles.end())
     {
-        if(myRank < n_proc-1) // we don't want the last process to send its bottom row
-        {
-            
-            myBuff.clear();
-            get_particles_from_rows(bottom_row_overlapp-1, bottom_row_overlapp, &myBuff, cells);
-            exchange_particles(myBuff, myRank, myRank+1, otherBuff, type, comm);
-
-            add_particles_to_cells(otherBuff, cells); // add the reference particles to the cells,
-        }
-        if(myRank > 0) // we don't want the root to send its top row anywhere.
-        {
-            myBuff.clear();
-            get_particles_from_rows(top_row_overlapp, top_row_overlapp+1, &myBuff, cells);
-            exchange_particles(myBuff, myRank, myRank-1, otherBuff, type, comm);
-            add_particles_to_cells(otherBuff, cells); // add the reference particles to the cells,
-        }
+        particle_t tmp = (*iter);
+        Point p = get_cell_index(tmp);
+        cells[p.y][p.x].push_back(&(*iter));
+        ++iter;
     }
-    if(( myRank % 2 ) == 1)
-    {
-        myBuff.clear();
-        get_particles_from_rows(top_row_overlapp, top_row_overlapp+1, &myBuff, cells);
-        exchange_particles(myBuff, myRank, myRank-1, otherBuff, type, comm);
-        
-        add_particles_to_cells(otherBuff, cells); // add the reference particles to the cells,
-        if(myRank < n_proc-1) // we don't want the last process to send its bottom row
-        {
-            myBuff.clear();
-            get_particles_from_rows(bottom_row_overlapp-1, bottom_row_overlapp, &myBuff, cells);
-            exchange_particles(myBuff, myRank, myRank+1, otherBuff, type, comm);
-
-            add_particles_to_cells(otherBuff, cells); // add the reference particles to the cells,
-        }
-
-    }
-
-}
-void synchronize_new_particles(ParticleList &new_particles, ParticleList &out_of_bounds_top, ParticleList &out_of_bounds_bottom, int myRank, int n_proc, MPI_Comm comm, MPI_Datatype type)
-{
-    
-    MPI_Status status;
-    ParticleList tmp;
-    
-    /*
-        All even processes start by communicating with the process below them
-        and then they communicate with the process above them. This is to avoid 
-        deadlock. 
-    */
-    if((myRank % 2) == 0) // all even processes sends their bottom row to the process below first, then top
-    {
-        if(myRank < n_proc-1) // we don't want the last process to send its bottom row
-        {
-            tmp.clear();
-            exchange_particles(out_of_bounds_bottom, myRank, myRank+1, tmp, type, comm);
-            new_particles.insert(new_particles.end(), tmp.begin(), tmp.end()); // append the new particles to out buffer
-
-        }
-        if(myRank > 0) // we don't want the root to send its top row anywhere.
-        {
-            tmp.clear();
-            exchange_particles(out_of_bounds_top, myRank, myRank-1, tmp, type, comm);
-            new_particles.insert(new_particles.end(), tmp.begin(), tmp.end()); // append the new particles to out buffer
-        }
-    }
-
-    /*
-        All odd processes start by communicating with the process above them
-        and then they communicate with the process below them. This is the reverse
-        of what the even processes do and is needed to avoid deadlock.
-    */
-    if(( myRank % 2 ) == 1)
-    {
-        tmp.clear();
-        exchange_particles(out_of_bounds_top, myRank, myRank-1, tmp, type, comm);
-        new_particles.insert(new_particles.end(), tmp.begin(), tmp.end()); // append the new particles to out buffer
-        if(myRank < n_proc-1) // we don't want the last process to send its bottom row
-        {
-            tmp.clear();
-            exchange_particles(out_of_bounds_bottom, myRank, myRank+1, tmp, type, comm);
-            new_particles.insert(new_particles.end(), tmp.begin(), tmp.end()); // append the new particles to out buffer
-        }
-
-    }
-}
-void exchange_particles(ParticleList &particles, int myRank, int target, ParticleList &out, MPI_Datatype type ,MPI_Comm comm)
-{
-    MPI_Status status;
-    int otherSize, mySize;
-    mySize = particles.size();
-    out.clear();
-    MPI_Sendrecv(&mySize, 1, MPI_INT, target, BUFF_SIZE, &otherSize, 1, MPI_INT, target, BUFF_SIZE, comm, &status);
-    out.resize(otherSize);
-    // printf("%d sent %d and got %d from %d \n", myRank, mySize, otherSize, target);
-    MPI_Sendrecv(&particles.front(), mySize, type, target, EXCHANGE, &out.front(), otherSize, type, target, EXCHANGE,comm, &status );
-
 }
 int main( int argc, char **argv )
 {    
@@ -151,45 +55,51 @@ int main( int argc, char **argv )
     //
     //  allocate generic resources
     //
-    FILE *fsave = savename && rank == 0 ? fopen( savename, "w" ) : NULL;
+
+    // FILE *fsave = savename && rank == 0 ? fopen( savename, "w" ) : NULL;
+    FILE *fsave = savename ? fopen( savename, "w" ) : NULL;
     particle_t *particles = (particle_t*) malloc( n * sizeof(particle_t) );
     
     MPI_Datatype PARTICLE;
-    MPI_Type_contiguous( 6, MPI_DOUBLE, &PARTICLE ); // define the datatype PARTICLE as struct of 6 doubles
+    MPI_Type_contiguous( 6, MPI_DOUBLE, &PARTICLE );
     MPI_Type_commit( &PARTICLE );
     
 
+    ParticleList reference_particles; // the particles needed to compute correct forces on my_particles.
+    ParticleList my_particles;        // the particles that this process is responsible for updating.
 
     CellMatrix cells(num_cells);
    
+    // dummy particle
+    particle_t dummy;
+    dummy.x = -1;
+    dummy.y = -1;
 
     //
     //  set up the data partitioning across processors
     //
-    
     int *partition_offsets = (int*) malloc( (n_proc+1) * sizeof(int) );
     int *partition_sizes = (int*) malloc( n_proc * sizeof(int) );
+    
+
     //
     //  allocate storage for local partition
     //
-    
-
     int rows_per_thread = (num_cells + n_proc - 1) / n_proc;
     int top_row     = min(  rank     * rows_per_thread, num_cells); // the top row that the process is responsible for.
     int bottom_row  = min( (rank+1)  * rows_per_thread, num_cells); // the bottow row that this process needs but is not responsible for
     
     int my_amount;
-    ParticleList my_particles;
     
     //
     //  initialize and distribute the particles (that's fine to leave it unoptimized)
-
+    //
     ParticleList all_particles;
     all_particles.clear();
     init_cell_matrix(cells);
-   
     if( rank == 0 )
     {
+        all_particles.clear();
         init_particles( n, particles );
         
         update_cells(particles, cells, n);
@@ -203,176 +113,191 @@ int main( int argc, char **argv )
             tmp.clear();
             get_particles_from_rows(first_row, last_row, &tmp, cells);
             all_particles.insert(all_particles.end(), tmp.begin(), tmp.end());
-           // int amount = tmp.size();
             partition_sizes[rankId] = tmp.size();
 
         }
        partition_offsets[n_proc] = n;
     }
-    // broadcast all offsets ant sizes so we can scatter later.
-   // MPI_Bcast(partition_offsets, n_proc+1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(partition_sizes, n_proc, MPI_INT, 0, MPI_COMM_WORLD);
-    // get my_amount from the partition sizes array and rezise the my_particles vector.
-    my_amount = partition_sizes[rank];
-    my_particles.resize(my_amount);
-  
-    MPI_Scatterv( &all_particles.front(), partition_sizes, partition_offsets, PARTICLE, &my_particles.front(), my_amount, PARTICLE, 0, MPI_COMM_WORLD );    
-   /* clears all the rows that the process is responsible for and also the overlapping
-      rows that this process needs for its computatuins. The clear cells function clamps 
-      the row values so it does not go out of bounds since the first and last process does 
-      not have a overlapping top and bottom row respectivly.
-    */
-    clear_cells(top_row-1, bottom_row+1, cells); 
-    add_particles_to_cells(my_particles, cells);
-
-    
-    send_overlapping_particles(cells, top_row, bottom_row, rank, n_proc, MPI_COMM_WORLD, PARTICLE);
-
-    // //
-    // //  simulate a number of time steps
-    // //
-    double simulation_time = read_timer( );
-    for( int step = 0; step < NSTEPS; step++ )
-    {
-        // 
-        //  collect all global data locally (not good idea to do)
-        //
-        
-        MPI_Barrier(MPI_COMM_WORLD); // wait in order to synchronize with same frame.
-
-
-        MPI_Gatherv(&my_particles.front(), my_amount, PARTICLE, particles, partition_sizes, partition_offsets,PARTICLE, 0, MPI_COMM_WORLD);
-        all_particles.clear();
-        if( rank == 0 )
-        {
-        
-            update_cells(particles, cells, n);
-            for(int rankId = 0; rankId < n_proc; rankId++) 
-            {
-                partition_offsets[rankId] = all_particles.size();
-                int first_row = min(  rankId     * rows_per_thread, num_cells);
-                int last_row  = min( (rankId+1)  * rows_per_thread, num_cells);
-
-                ParticleList tmp;
-                tmp.clear();
-                get_particles_from_rows(first_row, last_row, &tmp, cells);
-                all_particles.insert(all_particles.end(), tmp.begin(), tmp.end());
-               // int amount = tmp.size();
-                partition_sizes[rankId] = tmp.size();
-
-            }
-            partition_offsets[n_proc] = n;
-        }
-    
-
-    // broadcast all offsets ant sizes so we can scatter later.
+    // broadcast all offsets and sizes so we can scatter later.
     MPI_Bcast(partition_offsets, n_proc+1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(partition_sizes, n_proc, MPI_INT, 0, MPI_COMM_WORLD);
 
     // get my_amount from the partition sizes array and rezise the my_particles vector.
     my_amount = partition_sizes[rank];
     my_particles.resize(my_amount);
-  
-    MPI_Scatterv( &all_particles.front(), partition_sizes, partition_offsets, PARTICLE, &my_particles.front(), my_amount, PARTICLE, 0, MPI_COMM_WORLD );    
-   /* clears all the rows that the process is responsible for and also the overlapping
-      rows that this process needs for its computatuins. The clear cells function clamps 
-      the row values so it does not go out of bounds since the first and last process does 
-      not have a overlapping top and bottom row respectivly.
-    */
-    clear_cells(top_row-1, bottom_row+1, cells); 
-    add_particles_to_cells(my_particles, cells);
-
     
-   // send_overlapping_particles(cells, top_row, bottom_row, rank, n_proc, MPI_COMM_WORLD, PARTICLE);
+    MPI_Scatterv( &all_particles.front(), partition_sizes, partition_offsets, PARTICLE, &my_particles.front(), my_amount, PARTICLE, 0, MPI_COMM_WORLD );   
+    
+    
+    clear_cells(top_row-1, bottom_row+1, cells); 
+    add_particles_mpi(my_particles, cells);
+
+    //
+    //  simulate a number of time steps
+    //
+    double simulation_time = read_timer( );
+    for( int step = 0; step < NSTEPS; step++ )
+    {
 
         //
         //  save current step if necessary (slightly different semantics than in other codes)
         //
         if( fsave && (step%SAVEFREQ) == 0 )
-            save( fsave, n, particles );
+        {
+
+
+            if(rank == 0) // root saves to file. First it recieves particles from other processes then write to file
+            {
+                int num_waiting = n - my_particles.size();
+                int i;
+                int count = num_waiting;
+                // put root particles in particles array
+                for(i = 0; i < my_particles.size(); i++)
+                {
+                    particles[i] = my_particles[i];
+                }
+                particle_t other;
+                // recieve particles from other processes.
+                while(num_waiting > 0)
+                {
+                    MPI_Status stat;
+                    MPI_Recv(&other, 1, PARTICLE, MPI_ANY_SOURCE, SAVE, MPI_COMM_WORLD, &stat);
+                    particles[i] = other;                    
+                    i++;
+                    num_waiting--;
+                    
+                }
+                
+                save( fsave, n, particles );
+            }
+            else  // all other processes will send their particles to root(0)
+            {
+                for(int i = 0; i  < my_particles.size(); i++)
+                {
+                    MPI_Request req;
+                    MPI_Isend(&my_particles[i], 1 , PARTICLE, 0, SAVE, MPI_COMM_WORLD, &req );
+                }
+            }
+
+            
+        }
         
         //
         //  compute all forces
         //
+        
         ParticleList::iterator iter = my_particles.begin();
         while(iter != my_particles.end())
         {
             
-            
             particle_t *curr_particle = &(*iter);
             curr_particle->ax = 0;
             curr_particle->ay = 0;
-            // local[i].ax = local[i].ay = 0;
-            //  apply_force(&local[i], cells);
+            
              apply_force(curr_particle, cells);
              ++iter;
 
         }
-        
-        //
-        //  move particles
-        
-        // ParticleList out_of_bounds_top;
-        // ParticleList out_of_bounds_bottom;
-        // out_of_bounds_top.clear();
-        // out_of_bounds_bottom.clear();
+
+        reference_particles.clear();
+        ParticleList out_of_bounds;
+        out_of_bounds.clear();
+        ParticleList bounds;
+        bounds.clear();
         iter = my_particles.begin();
-        // printf("%d will start moving particles\n", rank);
+        /*
+            Iterate through all my particles and send all particles that are not our responsibility
+            any longer to other processes. Send first and last row particles as references to other
+            processes aswell.
+        */
         while(iter != my_particles.end())
         {
             
-           // particle_t *curr_particle = &(*iter);
+           
             move(*iter);
-            // Point p = get_cell_index(*iter);
-            // if(p.y < top_row ) // the particle moved out of our bounds
-            // {
+            Point p = get_cell_index(*iter);
+            if(p.y < top_row || p.y >= bottom_row) // check if out of bounds
+            {
+                particle_t tmp = (*iter);
+                int index = out_of_bounds.size();
+                out_of_bounds.push_back(tmp);
+                iter = my_particles.erase(iter);
+
+                // send to process above or below
+                int target = (p.y < top_row)? rank-1 : rank+1;
+                MPI_Request request;
+                MPI_Isend(&out_of_bounds[index], 1, PARTICLE, target, NEW, MPI_COMM_WORLD, &request ); // non blocking send
+                continue;
+            }
+            else if(p.y == top_row && top_row > 0) // send our top row particles to the process above except if we are root
+            {
                 
-            //     particle_t tmp = (*iter);
-            //     out_of_bounds_top.push_back(tmp);
-            //     // my_particles.erase(iter++);
-            //     iter = my_particles.erase(iter);
-            //     // printf("bounds top after %d\n", out_of_bounds_top.size());
-            // }
-            // else if(p.y >= bottom_row)
-            // {
-            //     // printf("%d :outofboundds bottom\n", rank);
-            //     out_of_bounds_bottom.push_back(*iter);
-            //     // my_particles.erase(iter++);
-            //     iter = my_particles.erase(iter);
-            // }
-            // else
-            // {
-            //     ++iter;
-            // }
-             ++iter;
+            
+                particle_t tmp = (*iter);
+                int index = bounds.size();
+                bounds.push_back(tmp);
+
+                
+                MPI_Request request;
+                MPI_Isend(&bounds[index], 1, PARTICLE, rank-1, BOUND, MPI_COMM_WORLD, &request ); // non blocking send
+            }
+            else if(p.y == bottom_row-1 && rank < n_proc-1) // send our top row particles to the process below except if we are last
+            {
+                particle_t tmp = (*iter);
+                int index = bounds.size();
+                bounds.push_back(tmp);
+
+                
+                MPI_Request request;
+                MPI_Isend(&bounds[index], 1, PARTICLE, rank+1, BOUND, MPI_COMM_WORLD, &request ); // non blocking send
+            }
+
+            ++iter;
+             
+        }
+        MPI_Request req;
+
+        // send message to process below and above that we are done sending particles.
+        if(top_row > 0) MPI_Isend(&dummy, 1, PARTICLE, rank - 1, DONE, MPI_COMM_WORLD, &req);
+        if(bottom_row < num_cells) MPI_Isend(&dummy, 1, PARTICLE, rank + 1, DONE, MPI_COMM_WORLD, &req);
+
+        // get ready to recieve new particles from other processes.
+        int isDone = 2;
+        if(top_row  == 0) isDone--; // we are root, should only recieve from process below.
+        if(bottom_row == num_cells) isDone--; // we are last process, we should only recieve from process above.
+
+        particle_t new_particle;
+        while(isDone > 0)
+        {
+            MPI_Status status;
+            MPI_Recv(&new_particle, 1, PARTICLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+
+            // check what sort of particle was recieved.
+            if(status.MPI_TAG == DONE)
+            {
+                isDone--;
+                continue;
+            }
+            else if(status.MPI_TAG == NEW)
+            {
+                my_particles.push_back(new_particle);
+            }
+            else if(status.MPI_TAG == BOUND)
+            {
+                reference_particles.push_back(new_particle);
+            }
 
         }
-        // printf("%d is done moving particles\n", rank);
-        // clear_cells(top_row-1, bottom_row+1, cells); 
-        // ParticleList new_particles;
-        // new_particles.clear();
-        // // printf("Hejsan %d\n", rank);
-        // synchronize_new_particles(new_particles, out_of_bounds_top, out_of_bounds_bottom, rank, n_proc, MPI_COMM_WORLD, PARTICLE);
-        //  // printf("Hejsan2 %d\n", rank);
-        // MPI_Barrier(MPI_COMM_WORLD);
-        // my_particles.insert(my_particles.end(), new_particles.begin(), new_particles.end());
-        // add_particles_to_cells(my_particles, cells);
-        // send_overlapping_particles(cells, top_row, bottom_row, rank, n_proc, MPI_COMM_WORLD, PARTICLE);
-        // for( int i = 0; i < my_amount; i++ )
-        // {
-        //     ParticleList out_of_bounds;
-        //     out_of_bounds.clear();
-        //     particle_t curr = my_particles[i];
-        //     move( curr );
-        //     Point p = get_cell_index(curr);
-        //     if(p.y < first_row || p.y >= last_row) // the particle moved out of our bounds
 
-        // }
-
-        
+        MPI_Barrier(MPI_COMM_WORLD); // wait in order to synchronize with same frame.  
+        // update our cells with my particles and the reference particles. 
+        clear_cells(top_row-1, bottom_row+1, cells); 
+        add_particles_mpi(my_particles, cells);
+        add_particles_mpi(reference_particles, cells);
     }
+
     simulation_time = read_timer( ) - simulation_time;
-     MPI_Barrier(MPI_COMM_WORLD);
+    
     if( rank == 0 )
         printf( "n = %d, n_procs = %d, simulation time = %g s\n", n, n_proc, simulation_time );
     
@@ -381,12 +306,7 @@ int main( int argc, char **argv )
     //
     free( partition_offsets );
     free( partition_sizes );
-    // free( local );
-
-    // if(rank == 0)
     free( particles );
-    
-
     if( fsave )
         fclose( fsave );
     
