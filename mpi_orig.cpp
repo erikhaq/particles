@@ -118,7 +118,7 @@ int main( int argc, char **argv )
         }
        partition_offsets[n_proc] = n;
     }
-    // broadcast all offsets ant sizes so we can scatter later.
+    // broadcast all offsets and sizes so we can scatter later.
     MPI_Bcast(partition_offsets, n_proc+1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(partition_sizes, n_proc, MPI_INT, 0, MPI_COMM_WORLD);
 
@@ -206,7 +206,7 @@ int main( int argc, char **argv )
         bounds.clear();
         iter = my_particles.begin();
         /*
-            Iterate through all my particles and send all particles that have are not our responsibility
+            Iterate through all my particles and send all particles that are not our responsibility
             any longer to other processes. Send first and last row particles as references to other
             processes aswell.
         */
@@ -241,7 +241,7 @@ int main( int argc, char **argv )
                 MPI_Request request;
                 MPI_Isend(&bounds[index], 1, PARTICLE, rank-1, BOUND, MPI_COMM_WORLD, &request ); // non blocking send
             }
-            else if(p.y == bottom_row-1 && rank < n_proc-1) // send our
+            else if(p.y == bottom_row-1 && rank < n_proc-1) // send our top row particles to the process below except if we are last
             {
                 particle_t tmp = (*iter);
                 int index = bounds.size();
@@ -288,14 +288,14 @@ int main( int argc, char **argv )
             }
 
         }
-    MPI_Barrier(MPI_COMM_WORLD); // wait in order to synchronize with same frame.  
-    // update our cells with my particles and the reference particles. 
-    clear_cells(top_row-1, bottom_row+1, cells); 
-    add_particles_mpi(my_particles, cells);
-    add_particles_mpi(reference_particles, cells);
 
-  
+        MPI_Barrier(MPI_COMM_WORLD); // wait in order to synchronize with same frame.  
+        // update our cells with my particles and the reference particles. 
+        clear_cells(top_row-1, bottom_row+1, cells); 
+        add_particles_mpi(my_particles, cells);
+        add_particles_mpi(reference_particles, cells);
     }
+
     simulation_time = read_timer( ) - simulation_time;
     
     if( rank == 0 )
