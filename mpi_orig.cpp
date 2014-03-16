@@ -14,17 +14,6 @@ using namespace std;
 //  benchmarking program
 //
 
-// void add_particles_mpi(list<particle_t> &particles, CellMatrix &cells)
-// {
-//     list<particle_t>::iterator iter = particles.begin();
-//     while(iter != particles.end())
-//     {
-//         particle_t tmp = (*iter);
-//         Point p = get_cell_index(tmp);
-//         cells[p.y][p.x].push_back(&(*iter));
-//         ++iter;
-//     }
-// }
 void add_particles_mpi(ParticleList &particles, CellMatrix &cells)
 {
     ParticleList::iterator iter = particles.begin();
@@ -66,6 +55,7 @@ int main( int argc, char **argv )
     //
     //  allocate generic resources
     //
+
     // FILE *fsave = savename && rank == 0 ? fopen( savename, "w" ) : NULL;
     FILE *fsave = savename ? fopen( savename, "w" ) : NULL;
     particle_t *particles = (particle_t*) malloc( n * sizeof(particle_t) );
@@ -74,14 +64,13 @@ int main( int argc, char **argv )
     MPI_Type_contiguous( 6, MPI_DOUBLE, &PARTICLE );
     MPI_Type_commit( &PARTICLE );
     
-    
-    // list<particle_t> reference_particles;
-    // list<particle_t> my_particles;
-    ParticleList reference_particles;
-    ParticleList my_particles;
+
+    ParticleList reference_particles; // the particles needed to compute correct forces on my_particles.
+    ParticleList my_particles;        // the particles that this process is responsible for updating.
 
     CellMatrix cells(num_cells);
    
+    // dummy particle
     particle_t dummy;
     dummy.x = -1;
     dummy.y = -1;
@@ -108,7 +97,6 @@ int main( int argc, char **argv )
     ParticleList all_particles;
     all_particles.clear();
     init_cell_matrix(cells);
-    // all_particles.push_back(dummy);
     if( rank == 0 )
     {
         all_particles.clear();
@@ -124,7 +112,6 @@ int main( int argc, char **argv )
             ParticleList tmp;
             tmp.clear();
             get_particles_from_rows(first_row, last_row, &tmp, cells);
-           // int amount = tmp.size();
             all_particles.insert(all_particles.end(), tmp.begin(), tmp.end());
             partition_sizes[rankId] = tmp.size();
 
@@ -134,13 +121,13 @@ int main( int argc, char **argv )
     // broadcast all offsets ant sizes so we can scatter later.
     MPI_Bcast(partition_offsets, n_proc+1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(partition_sizes, n_proc, MPI_INT, 0, MPI_COMM_WORLD);
+
     // get my_amount from the partition sizes array and rezise the my_particles vector.
     my_amount = partition_sizes[rank];
     my_particles.resize(my_amount);
     
-    // my_particles.push_back(dummy);
     MPI_Scatterv( &all_particles.front(), partition_sizes, partition_offsets, PARTICLE, &my_particles.front(), my_amount, PARTICLE, 0, MPI_COMM_WORLD );   
-    // printf("r: %d - size: %d\n",rank,  my_particles.size());
+    
     
     clear_cells(top_row-1, bottom_row+1, cells); 
     add_particles_mpi(my_particles, cells);
@@ -151,9 +138,6 @@ int main( int argc, char **argv )
     double simulation_time = read_timer( );
     for( int step = 0; step < NSTEPS; step++ )
     {
-        // 
-        //  collect all global data locally (not good idea to do)
-        //
 
         //
         //  save current step if necessary (slightly different semantics than in other codes)
@@ -162,31 +146,31 @@ int main( int argc, char **argv )
         {
 
 
-            if(rank == 0)
+            if(rank == 0) // root saves to file. First it recieves particles from other processes then write to file
             {
                 int num_waiting = n - my_particles.size();
                 int i;
                 int count = num_waiting;
-                // MPI_Request *requests =(MPI_Request*) malloc(num_waiting * sizeof(MPI_Request));
+                // put root particles in particles array
                 for(i = 0; i < my_particles.size(); i++)
                 {
                     particles[i] = my_particles[i];
                 }
                 particle_t other;
+                // recieve particles from other processes.
                 while(num_waiting > 0)
                 {
                     MPI_Status stat;
                     MPI_Recv(&other, 1, PARTICLE, MPI_ANY_SOURCE, SAVE, MPI_COMM_WORLD, &stat);
-                    particles[i] = other;
-                    // MPI_Irecv(&particles[i], 1, PARTICLE, MPI_ANY_SOURCE, SAVE, MPI_COMM_WORLD, &requests[num_waiting-1]);
+                    particles[i] = other;                    
                     i++;
                     num_waiting--;
-                    // printf("num_waiting: %d\n", num_waiting);
+                    
                 }
-                // MPI_Waitall(count,requests, MPI_STATUSES_IGNORE);
+                
                 save( fsave, n, particles );
             }
-            else 
+            else  // all other processes will send their particles to root(0)
             {
                 for(int i = 0; i  < my_particles.size(); i++)
                 {
@@ -201,7 +185,7 @@ int main( int argc, char **argv )
         //
         //  compute all forces
         //
-        // list<particle_t>::iterator iter = my_particles.begin();
+        
         ParticleList::iterator iter = my_particles.begin();
         while(iter != my_particles.end())
         {
@@ -214,25 +198,32 @@ int main( int argc, char **argv )
              ++iter;
 
         }
+
         reference_particles.clear();
         ParticleList out_of_bounds;
         out_of_bounds.clear();
         ParticleList bounds;
         bounds.clear();
         iter = my_particles.begin();
+        /*
+            Iterate through all my particles and send all particles that have are not our responsibility
+            any longer to other processes. Send first and last row particles as references to other
+            processes aswell.
+        */
         while(iter != my_particles.end())
         {
             
-           // particle_t *curr_particle = &(*iter);
+           
             move(*iter);
             Point p = get_cell_index(*iter);
-            if(p.y < top_row || p.y >= bottom_row)
+            if(p.y < top_row || p.y >= bottom_row) // check if out of bounds
             {
                 particle_t tmp = (*iter);
                 int index = out_of_bounds.size();
                 out_of_bounds.push_back(tmp);
                 iter = my_particles.erase(iter);
 
+                // send to process above or below
                 int target = (p.y < top_row)? rank-1 : rank+1;
                 MPI_Request request;
                 MPI_Isend(&out_of_bounds[index], 1, PARTICLE, target, NEW, MPI_COMM_WORLD, &request ); // non blocking send
@@ -265,12 +256,15 @@ int main( int argc, char **argv )
              
         }
         MPI_Request req;
+
+        // send message to process below and above that we are done sending particles.
         if(top_row > 0) MPI_Isend(&dummy, 1, PARTICLE, rank - 1, DONE, MPI_COMM_WORLD, &req);
         if(bottom_row < num_cells) MPI_Isend(&dummy, 1, PARTICLE, rank + 1, DONE, MPI_COMM_WORLD, &req);
 
+        // get ready to recieve new particles from other processes.
         int isDone = 2;
-        if(top_row  == 0) isDone--;
-        if(bottom_row == num_cells) isDone--;
+        if(top_row  == 0) isDone--; // we are root, should only recieve from process below.
+        if(bottom_row == num_cells) isDone--; // we are last process, we should only recieve from process above.
 
         particle_t new_particle;
         while(isDone > 0)
@@ -278,6 +272,7 @@ int main( int argc, char **argv )
             MPI_Status status;
             MPI_Recv(&new_particle, 1, PARTICLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
+            // check what sort of particle was recieved.
             if(status.MPI_TAG == DONE)
             {
                 isDone--;
@@ -293,7 +288,8 @@ int main( int argc, char **argv )
             }
 
         }
-    MPI_Barrier(MPI_COMM_WORLD); // wait in order to synchronize with same frame.   
+    MPI_Barrier(MPI_COMM_WORLD); // wait in order to synchronize with same frame.  
+    // update our cells with my particles and the reference particles. 
     clear_cells(top_row-1, bottom_row+1, cells); 
     add_particles_mpi(my_particles, cells);
     add_particles_mpi(reference_particles, cells);
@@ -310,7 +306,6 @@ int main( int argc, char **argv )
     //
     free( partition_offsets );
     free( partition_sizes );
-    //free( local );
     free( particles );
     if( fsave )
         fclose( fsave );
